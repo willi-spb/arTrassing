@@ -3,8 +3,8 @@ program Project_TestTrass1;
 uses
   System.StartUpCopy,
   FMX.Forms,
-  fm_TestTrass1 in 'fm_TestTrass1.pas' {Form1},
-  FMX.arCurveClasses in '..\FMX.arCurveClasses.pas';
+  FMX.arCurveClasses in 'FMX.arCurveClasses.pas',
+  fm_TestTrass1 in 'fm_TestTrass1.pas' {Form1};
 
 {$R *.res}
 
