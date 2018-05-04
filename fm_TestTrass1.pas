@@ -12,6 +12,7 @@ type
   TForm1 = class(TForm)
     btn1: TButton;
     img1: TImage;
+    lbl1: TLabel;
     procedure btn1Click(Sender: TObject);
   private
     { Private declarations }
@@ -36,7 +37,7 @@ var LCv:TarCurve;
     LArea:TarChartArea;
 begin
  LCv:=TarCurve.Create(0,TAlphaColorRec.Maroon,1,TStrokeDash.Solid,TmarkType.mpArrow,8);
- LArea:=TarChartArea.Create(TAlphaColorRec.Navy,TAlphaColorRec.Black,TAlphaColorRec.Black,TStrokeDash.Dash,0.7);
+ LArea:=TarChartArea.Create(TAlphaColorRec.Darkgray,TAlphaColorRec.Black,TStrokeDash.Dash,0.7);
  Lx:=50; Ly:=0;
  for I :=0 to 20 do
   begin
@@ -45,26 +46,39 @@ begin
   end;
   Lcv.MarkFill.Kind:=TBrushKind.Solid;
   Lcv.MarkFilled:=true;
+  Lcv.TitleColor:=TAlphaColorRec.Green;
 
   img1.Bitmap:=TBitMap.Create(Trunc(img1.Width),Trunc(img1.Height));
-  LCv.Cv:=img1.Bitmap.Canvas;
-  LArea.CV:=img1.Bitmap.Canvas;
+  LArea.Curves.Add(Lcv);
+  LArea.SetCanvas(img1.Bitmap.Canvas);
+  ///
   LArea.SetAreaParam(RectF(0,0,500,200),img1.Bitmap.BoundsF);
-
 //  LCv.ScalePoints(LCv.GetAreaRect,LArea.GetActiveArea);
-  LCv.ScalePoints(RectF(0,0,500,200),LArea.GetActiveArea);
+//  LCv.ScalePoints(RectF(0,0,500,200),LArea.GetActiveArea);
+
+  LArea.AddCurve(1,TAlphaColorRec.Darkcyan,1,TStrokeDash.Solid,TmarkType.mpRect,5);
+  LArea.Curves.Last.MarkFilled:=true;
+   Lx:=-20; Ly:=0;
+   for I :=0 to 200 do
+    begin
+     Larea.Curves.Last.Points.Add(TcvPoint.Create(i,Lx,Ly));
+     Lx:=Lx+2; Ly:=Ly+0.6;
+    end;
+   Larea.Curves.Last.TitleType:=ttYValue;
+   Larea.Curves.Last.MarkedEvery(20);
+   Larea.Curves.Last.MarkedSeveral([5,10,15]);
   img1.Bitmap.Canvas.BeginScene;
   try
-   LCv.DrawPointLines;
-   LCv.DrawPtMarks;
-   ///
-   LArea.DrawAxisLabels(true);
-   LArea.DrawAxisLabels(false);
-   LArea.DrawGrid(true);
-   LArea.DrawGrid(false);
-   LArea.DrawFrame;
-   ///
+  //  LCv.DrawPointLines;
+  //   LCv.DrawPtMarks;
+   LCv.TitleType:=ttXYvalue;
+   LCv.TitleHorzAlign:=TTextAlign.Center;
 
+   LArea.RedrawAll;
+   LArea.ApplyAutoMargins;
+   LArea.SetAreaParam(RectF(0,0,500,200),img1.Bitmap.BoundsF);
+   LArea.RedrawAll;
+   ///
   finally
     img1.Bitmap.Canvas.EndScene;
   end;

@@ -25,4 +25,9 @@ object Form1: TForm1
     Size.Height = 481.000000000000000000
     Size.PlatformDefault = False
   end
+  object lbl1: TLabel
+    Position.X = 272.000000000000000000
+    Position.Y = 64.000000000000000000
+    Text = 'lbl1'
+  end
 end
