@@ -97,6 +97,33 @@ TarCurve=Class(TObject)
   property Enabled:boolean read FEnabled write FEnabled;
 End;
 
+TarAxisLabel=class(TObject)
+  private
+   FVerticalFlag:boolean;
+   FRect:TRectF;
+   FFontColor:TAlphaColor;
+   FFont:TFont;
+   FText:string;
+   FCenter:TPointF;
+   FVisible:boolean;
+   FbackBrush:TBrush;
+   FCanvasRect:TRectF;
+  public
+    constructor Create(aVerticalFlag:boolean; aColor:TAlphaColor;
+                        const aBackColor: TAlphaColor=TAlphaColorrec.Alpha);
+    destructor Destroy; override;
+    function Draw(const aCV:Tcanvas; const aCvRect:TRectF; aCnX,aCnY:single):boolean;
+    ///
+    property VerticalFlag:boolean read FVerticalFlag;
+    property Font:TFont read FFont;
+    property FontColor:TAlphaColor read FFontColor write FFontColor;
+    property BackBrush:TBrush read FbackBrush;
+    property ClientRect:TRectF read FRect;
+    property Text:string read FText write FText;
+    property Center:TPointF read FCenter write FCenter;
+    property Visible:boolean read FVisible write FVisible;
+end;
+
 TarAxis=class(TObject)
   private
    FVerticalFlag:boolean;
@@ -113,6 +140,12 @@ TarAxis=class(TObject)
   protected
     CvRef:TCanvas;
     UnionRect:TRectF;
+    FTextLabel:TarAxisLabel;
+    /// <summary>
+    ///    adding - (Rect from Line and labelsSize)
+    /// </summary>
+    FCanvasRect,FAxisCanvasRect:TRectF;
+    procedure SetCanvasRects(const AcvAllRect:TRectF; aCvMin,aCvMax,aCvOrto:single);
   public
     Labels:TObjectList<TcvPoint>;
     function RecalcLabels(apMin, apMax, aInterval,aOrtoValue:single):boolean;
@@ -122,6 +155,8 @@ TarAxis=class(TObject)
    ///
     function DrawLabelsAndLine:boolean;
     function DrawTitles:boolean;
+   ///
+   property TextLabel:TarAxisLabel read FTextLabel;
    ///
    property Min:single read FMin;
    property Max:single read FMax;
@@ -149,15 +184,30 @@ TarChartArea=class(TObject)
     FGridBrush,FFrameBrush:TStrokeBrush;
     FBackFill,FFrameFill:TBrush;
     FGridType:TGridType;
+    FAxisDivider:TPointF;
   protected
-   CvRef:TCanvas;
+    CvRef:TCanvas;
+    F_addAxisMargin,F_addFrameMargin:integer;
   public
     AxisX,AxisY:TarAxis;
     Curves:TobjectList<TarCurve>;
     function GetActiveArea:TRectF;
-    procedure SetAreaParam(const aDataArea,aAreaCvRect:TRectF);
+    procedure SetAreaParams(const aDataArea,aAreaCvRect:TRectF);
+    /// <summary>
+    ///    с установленными ранее в SetAreaParams значениями перевычислить с новыми границами margins
+    /// </summary>
+    procedure ResetAreaParams;
+    /// <summary>
+    ///    изменяется только область canvas - у нее новый размер
+    /// </summary>
+    procedure ResetCanvasArea(const aAreaCvRect:TRectF);
+    /// <summary>
+    ///    задать кол-во разбиений по осям XY - перед этим следует задать DataArea
+    /// </summary>
+    procedure SetAxisDividerValues(adivX,adivY:single);
     procedure SetCanvas(const ACv:Tcanvas);
     function DrawAxes:boolean;
+    procedure SetAxisTextLabels(const AXtext,aYtext:string);
     function DrawGrid:boolean;
     /// inner frame
     procedure DrawFrame;
@@ -184,13 +234,27 @@ TarChartArea=class(TObject)
     ///
     procedure RedrawAll;
     ///
-    procedure ApplyAutoMargins(addEqMargin:integer=6);
+    /// <summary>
+    ///    после RedrawAll изменяет отступы с учетом длинны надписей текста осей и + addAxismargin как доп. отступ
+    ///    от осей с цифрами и addFrameMargin - от верх и право (где осей нет)
+    /// </summary>
+    procedure ApplyAutoMargins(addAxisMargin,addFrameMargin:integer);
+    /// <summary>
+    ///    пересчет автоотступов при изменении размера картинки (не меняется значение отступов - берется предыдущее)
+    /// </summary>
+    procedure ResetAutoMargins;
+    ///
+    /// <summary>
+    ///    использовать переустановку размеров Bitmap и далее полный цикл вывода
+    /// </summary>
+    procedure PaintToBitmap(const ABM:TBitmap; aNewBMArea:TRectF; AutoMarginEnabled:boolean=false);
     ///
     property MarginRect:TRectF read FMarginRect;
     property GridBrush:TStrokeBrush read FGridBrush;
     property GridType:TGridType read FGridType write FGridType;
     property BackFill:TBrush read FBackFill;
     property FrameFill:TBrush read FFrameFill;
+    property AxisDivider:TPointF read FAxisDivider write FAxisDivider;
 end;
 
 
@@ -606,6 +670,8 @@ begin
   FInterval:=0.1;
   Fmin:=0;
   Fmax:=1;
+  FCanvasRect:=Rect(0,0,0,0);
+  FAxisCanvasRect:=FCanvasRect;
   FOnPointDrawTitleEvent:=nil;
   FVerticalFlag:=aVerticalFlag;
   ///
@@ -633,11 +699,13 @@ begin
   Labels:=TObjectList<TcvPoint>.Create(true);
   UnionRect:=RectF(0,0,0,0);
  //// RecalcLabels(apMin,apMax,aInterval,aOrtoValue);
+  FTextLabel:=TarAxisLabel.Create(FVerticalFlag,aTitleColor);
 end;
 
 
 destructor TarAxis.Destroy;
 begin
+  FTextLabel.Free;
   FTitleFont.Free;
   FBrush.Free;
   FLineBrush.free;
@@ -672,11 +740,13 @@ var Lpt:TcvPoint;
     L_Rect:TRectF;
     L_Title:String;
     LW,LH:single;
+    LUnFlag:boolean;
 begin
   Result:=false;
   if (FEnabled=false) or (Labels.Count=0) then exit;
   with CvRef do
    begin
+     LUnFlag:=false;
      Font.Assign(FTitleFont);
      Fill.Color:=FTitleColor;
      for Lpt in Labels do
@@ -714,14 +784,36 @@ begin
              begin
                L_Rect:=RectF(Lpt.ptX-0.5*LW,Lpt.ptY+1+FlabelSize,Lpt.ptX+0.5*LW,Lpt.ptY+1+FlabelSize+LH);
              end;
-           if UnionRect.IsEmpty then
-              UnionRect:=L_Rect
-           else UnionRect.Union(L_Rect);
+           if LUnFlag=false then
+            begin
+              UnionRect:=L_Rect;
+              LUnFlag:=true;
+            end
+           else
+             begin
+               if L_Rect.Left<UnionRect.Left then
+                  UnionRect.Left:=L_Rect.Left;
+               if L_Rect.Top<UnionRect.Top then
+                  UnionRect.Top:=L_Rect.Top;
+               if L_Rect.Right>UnionRect.Right then
+                  UnionRect.Right:=L_Rect.Right;
+               if L_Rect.Bottom>UnionRect.Bottom then
+                  UnionRect.Bottom:=L_Rect.Bottom;
+             end;
            FillText(L_Rect,L_Title,False,1,[],TTextAlign.Center,TTextAlign.Center);
            Result:=true;
          end;
       end;
+     // TextLabels:
+     if FVerticalFlag then
+        FTextLabel.Draw(CvRef,FCanvasRect,UnionRect.Left,FAxisCanvasRect.Top+Abs(0.5*FAxisCanvasRect.Height))
+     else
+        FTextLabel.Draw(CvRef,FCanvasRect,FAxisCanvasRect.Left+Abs(0.5*FAxisCanvasRect.Width),UnionRect.Bottom);
    end;
+ { if FVerticalFlag then CvRef.Stroke.Color:=TAlphaColorRec.Red
+  else CvRef.Stroke.Color:=TAlphaColorRec.Green;
+   CvRef.DrawRect(UnionRect,0,0,[],1);
+   }
 end;
 
 function TarAxis.RecalcLabels(apMin, apMax, aInterval,aOrtoValue:single):boolean;
@@ -760,6 +852,15 @@ begin
     end;
 end;
 
+procedure TarAxis.SetCanvasRects(const AcvAllRect:TRectF; aCvMin, aCvMax, aCvOrto: single);
+begin
+ FCanvasRect:=AcvAllRect;
+ if FVerticalFlag then
+    FAxisCanvasRect:=RectF(aCvOrto-FlabelSize,aCvMin,aCvOrto,aCvMax)
+ else
+    FAxisCanvasRect:=RectF(aCvMin,aCvOrto,aCvMax,aCvOrto+FlabelSize);
+end;
+
 { TarChartArea }
 
 function TarChartArea.AddCurve(aNum:integer; aColor: TAlphaColor; aThickness: single;
@@ -777,7 +878,7 @@ begin
   Result:=Curves.Add(LCv);
 end;
 
-procedure TarChartArea.ApplyAutoMargins(addEqMargin:integer=6);
+procedure TarChartArea.ApplyAutoMargins(addAxisMargin,addFrameMargin:integer);
 var LRect,LActRect:TRectF;
 begin
  LRect:=AxisX.UnionRect;
@@ -792,11 +893,12 @@ begin
  if FMarginRect.Top<0 then FMarginRect.Top:=0;
  if FMarginRect.Right<0 then FMarginRect.Right:=0;
  if FMarginRect.Bottom<0 then FMarginRect.Bottom:=0;
-// FMarginRect.Inflate(-addEqMargin,-addEqMargin);
-{ LRect:=RectF(FCanvasArea.Left+FMarginRect.Left,FCanvasArea.Top+FMarginRect.Top,
-              FCanvasArea.Right-FMarginRect.Right,FCanvasArea.Bottom-FMarginRect.Bottom);
- CvRef.Stroke.Color:=TAlphaColorRec.Red;
- CvRef.DrawRect(LRect,0,0,[],1);
+ FMarginRect:=RectF(FMarginRect.Left+addAxisMargin,FMarginRect.Top+addFrameMargin,
+                    FMarginRect.Right+addFrameMargin,FMarginRect.Bottom+addAxisMargin);
+ F_addAxisMargin:=addAxisMargin;
+ F_addFrameMargin:=addFrameMargin;
+{ CvRef.Stroke.Color:=TAlphaColorRec.Red;
+ CvRef.DrawRect(FMarginRect,0,0,[],1);
  }
 end;
 
@@ -806,6 +908,9 @@ begin
   inherited Create;
  // FMarginRect:=RectF(0,0,0,0);
   FMarginRect:=RectF(40,10,10,20);
+  F_addAxisMargin:=25;
+  F_addFrameMargin:=5;
+  FAxisDivider:=PointF(10,10);
   AxisX:=TarAxis.Create(false,TAlphaColorRec.Black,TAlphaColorRec.Black,TAlphaColorRec.Black,4);
   AxisY:=TarAxis.Create(true,TAlphaColorRec.Black,TAlphaColorRec.Black,TAlphaColorRec.Black,4);
   FFrameBrush:=TStrokeBrush.Create(TBrushKind.Solid,aFrameColor);
@@ -852,6 +957,21 @@ begin
   DrawCurves; // !
   DrawFrame;
   DrawBoundsRect;
+end;
+
+procedure TarChartArea.ResetAreaParams;
+begin
+ Self.SetAreaParams(FDataArea,FCanvasArea);
+end;
+
+procedure TarChartArea.ResetAutoMargins;
+begin
+ Self.ApplyAutoMargins(F_addAxisMargin,F_addFrameMargin);
+end;
+
+procedure TarChartArea.ResetCanvasArea(const aAreaCvRect: TRectF);
+begin
+  Self.SetAreaParams(FDataArea,aAreaCvRect);
 end;
 
 function TarChartArea.DrawAxes: boolean;
@@ -955,10 +1075,34 @@ begin
 end;
 
 
-procedure  TarChartArea.SetAreaParam(const aDataArea,aAreaCvRect:TRectF);
+procedure TarChartArea.PaintToBitmap(const ABM: TBitmap; aNewBMArea: TRectF;
+  AutoMarginEnabled: boolean);
+begin
+  if Assigned(ABM) then
+    begin
+      ABM.SetSize(Trunc(aNewBMArea.Left+aNewBMArea.Width),Trunc(aNewBMArea.Top+aNewBMArea.Height));
+      SetCanvas(ABM.Canvas);
+      ABM.Canvas.BeginScene;
+      try
+       ResetCanvasArea(aNewBMArea);
+       RedrawAll;
+       if AutoMarginEnabled then
+         begin
+           ResetAutoMargins;
+           ResetAreaParams;
+           RedrawAll;
+         end;
+     finally
+       ABM.Canvas.EndScene;
+     end;
+    end;
+end;
+
+procedure  TarChartArea.SetAreaParams(const aDataArea,aAreaCvRect:TRectF);
 var Lpt:TcvPoint;
     LptX,LPtY:single;
     LCoeff:TPointF;
+    L_Rect:TrectF;
 begin
   FCanvasArea:=aAreaCvRect;
   FDataArea:=aDataArea;
@@ -968,8 +1112,9 @@ begin
   if (FDataArea.Height>0) and (FCanvasArea.Height-FMarginRect.Top-FMarginRect.Bottom>1) then
      FXYCoeffs.Y:=(FCanvasArea.Height-FMarginRect.Top-FMarginRect.Bottom)/FDataArea.Height;
   ///
-  AxisX.RecalcLabels(FdataArea.left,FdataArea.Right,Abs(FDataArea.Width)/10,aDataArea.Bottom);
-  AxisY.RecalcLabels(FdataArea.Top,FdataArea.Bottom,Abs(FDataArea.Height)/10,aDataArea.Left);
+  ///  Axis recalc
+  AxisX.RecalcLabels(FdataArea.left,FdataArea.Right,Abs(FDataArea.Width)/FAxisDivider.X,aDataArea.Bottom);
+  AxisY.RecalcLabels(FdataArea.Top,FdataArea.Bottom,Abs(FDataArea.Height)/FAxisDivider.Y,aDataArea.Left);
   ///
    LCoeff:=PointF(AxisX.Interval*FXYCoeffs.X,AxisY.Interval*FXYCoeffs.Y);
    LptX:=FCanvasArea.Left+FMarginRect.Left;
@@ -988,6 +1133,25 @@ begin
           Lpt.Point:=PointF(LptX,LptY);
           LptY:=LptY-LCoeff.Y;
         end;
+   ///
+   ///
+   L_Rect:=GetActiveArea;
+   AxisX.SetCanvasRects(FCanvasArea,L_Rect.Left,L_Rect.Right,L_Rect.Bottom);
+   AxisY.SetCanvasRects(FCanvasArea,L_Rect.Top,L_Rect.Bottom,L_Rect.Left);
+end;
+
+procedure TarChartArea.SetAxisDividerValues(adivX, adivY: single);
+begin
+  if aDivX>1 then
+     FAxisDivider.X:=adivX;
+    if aDivY>1 then
+     FAxisDivider.Y:=adivY;
+end;
+
+procedure TarChartArea.SetAxisTextLabels(const AXtext, aYtext: string);
+begin
+  AxisX.TextLabel.Text:=AXtext;
+  AxisY.TextLabel.Text:=AYtext;
 end;
 
 procedure TarChartArea.SetCanvas(const ACv: Tcanvas);
@@ -999,6 +1163,99 @@ begin
   for Lcv in Curves do
      Lcv.CvRef:=aCV;
 end;
+
+{ TarAxisLabel }
+/// from StackOverflow https://stackoverflow.com/questions/18229549/firemonkey-rotate-text
+procedure DrawRotatedText(aCanvas: TCanvas; const P: TPointF; RadAngle: Single;
+  const S: String; HTextAlign, VTextAlign: TTextAlign);
+var
+  W: Single;
+  H: Single;
+  R: TRectF;
+  SaveMatrix: TMatrix;
+  Matrix: TMatrix;
+begin
+  W := aCanvas.TextWidth(S);
+  H := aCanvas.TextHeight(S);
+  case HTextAlign of
+    TTextAlign.taCenter:   R.Left := -W / 2;
+    TTextAlign.taLeading:  R.Left := 0;
+    TTextAlign.taTrailing: R.Left := -W;
+  end;
+  R.Width := W;
+  case VTextAlign of
+    TTextAlign.taCenter:   R.Top := -H / 2;
+    TTextAlign.taLeading:  R.Top := 0;
+    TTextAlign.taTrailing: R.Top := -H;
+  end;
+  R.Height := H;
+  SaveMatrix := aCanvas.Matrix;
+  try
+   Matrix :=TMatrix.CreateRotation(RadAngle);
+   Matrix.m31 := P.X;
+   Matrix.m32 := P.Y;
+   aCanvas.MultiplyMatrix(Matrix);
+   aCanvas.FillText(R, S, False, 1, [], HTextAlign, VTextAlign);
+   finally
+    aCanvas.SetMatrix(SaveMatrix);
+  end;
+end;
+////////////////////////////////////////////////////////
+
+constructor TarAxisLabel.Create(aVerticalFlag: boolean; aColor:TAlphaColor;
+  const aBackColor: TAlphaColor=TAlphaColorrec.Alpha);
+begin
+  inherited Create;
+  FCanvasRect:=rect(0,0,0,0);
+  FText:='DEFAULT';
+  FVerticalFlag:=aVerticalFlag;
+  FFont:=TFont.Create;
+  FFontColor:=aColor;
+  FbackBrush:=TBrush.Create(TBrushKind.Solid,aBackColor);
+////  FbackBrush.Color:=aBackColor;
+  FVisible:=true;
+end;
+
+destructor TarAxisLabel.Destroy;
+begin
+  FFont.Free;
+  FbackBrush.Free;
+  inherited;
+end;
+
+function TarAxisLabel.Draw(const aCV:Tcanvas; const aCvRect:TRectF; aCnX,aCnY:single): boolean;
+var LRotate,LW,LH:single;
+    L_Rect:TRectF;
+begin
+  Result:=false;
+  if (FVisible=false) or (Trim(FText)='') then exit;
+  if FVerticalFlag then LRotate:=DegToRad(-90)
+  else LRotate:=0;
+  aCV.Font.Assign(FFont);
+  aCV.Fill.Assign(FbackBrush);
+  LW:=aCV.TextWidth(FText);
+  LH:=aCV.TextHeight(FText);
+  if FVerticalFlag then
+     FCenter:=PointF(aCvRect.left+0.5*(aCnx-aCvRect.left),aCnY)
+  else
+     FCenter:=PointF(aCnx,aCvRect.Bottom-0.5*(aCvRect.Bottom-aCnY));
+  /// проверка на выход за пределы
+  ///  ...
+  ///
+  if LRotate<>0 then
+   begin
+     DrawRotatedText(aCV,FCenter,LRotate,FText,TTextAlign.Center,TTextAlign.Center);
+     L_Rect:=RectF(FCenter.X-0.5*LH,FCenter.Y-0.5*LW,FCenter.X+0.5*LH,FCenter.Y+0.5*LW);
+   end
+  else
+     begin
+       L_Rect:=RectF(FCenter.X-0.5*LW,FCenter.Y-0.5*LH,FCenter.X+0.5*LW,FCenter.Y+0.5*LH);
+       aCV.FillText(L_Rect,FText,False,1,[],TTextAlign.Center,TTextAlign.Center);
+     end;
+  FRect:=L_Rect;
+  Result:=true;
+end;
+
 
 end.
 

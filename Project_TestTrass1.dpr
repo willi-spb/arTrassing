@@ -9,6 +9,9 @@ uses
 {$R *.res}
 
 begin
+  {$IFDEF DEBUG}
+     ReportMemoryLeaksOnShutdown:=true;
+  {$ENDIF}
   Application.Initialize;
   Application.CreateForm(TForm1, Form1);
   Application.Run;

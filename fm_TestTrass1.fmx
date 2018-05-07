@@ -7,6 +7,8 @@ object Form1: TForm1
   FormFactor.Width = 320
   FormFactor.Height = 480
   FormFactor.Devices = [Desktop]
+  OnDestroy = FormDestroy
+  OnResize = FormResize
   DesignerMasterStyle = 0
   object btn1: TButton
     Position.X = 48.000000000000000000
@@ -19,15 +21,25 @@ object Form1: TForm1
     MultiResBitmap = <
       item
       end>
+    Anchors = [akLeft, akTop, akRight, akBottom]
+    MarginWrapMode = Original
     Position.X = 48.000000000000000000
     Position.Y = 160.000000000000000000
     Size.Width = 921.000000000000000000
     Size.Height = 481.000000000000000000
     Size.PlatformDefault = False
+    WrapMode = Stretch
   end
   object lbl1: TLabel
     Position.X = 272.000000000000000000
     Position.Y = 64.000000000000000000
     Text = 'lbl1'
+  end
+  object tmr1: TTimer
+    Enabled = False
+    Interval = 700
+    OnTimer = tmr1Timer
+    Left = 472
+    Top = 80
   end
 end

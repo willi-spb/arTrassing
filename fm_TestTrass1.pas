@@ -13,7 +13,11 @@ type
     btn1: TButton;
     img1: TImage;
     lbl1: TLabel;
+    tmr1: TTimer;
     procedure btn1Click(Sender: TObject);
+    procedure FormResize(Sender: TObject);
+    procedure tmr1Timer(Sender: TObject);
+    procedure FormDestroy(Sender: TObject);
   private
     { Private declarations }
    // LL:TAlphaColor
@@ -28,13 +32,16 @@ implementation
 
 {$R *.fmx}
 
-uses FMX.arCurveClasses;
+uses FMX.arCurveClasses, Math;
+
+var LArea:TarChartArea;
+    LBM:TBitmap;
 
 procedure TForm1.btn1Click(Sender: TObject);
 var LCv:TarCurve;
     Lx,Ly:single;
     i:integer;
-    LArea:TarChartArea;
+  //  LArea:TarChartArea;
 begin
  LCv:=TarCurve.Create(0,TAlphaColorRec.Maroon,1,TStrokeDash.Solid,TmarkType.mpArrow,8);
  LArea:=TarChartArea.Create(TAlphaColorRec.Darkgray,TAlphaColorRec.Black,TStrokeDash.Dash,0.7);
@@ -47,12 +54,13 @@ begin
   Lcv.MarkFill.Kind:=TBrushKind.Solid;
   Lcv.MarkFilled:=true;
   Lcv.TitleColor:=TAlphaColorRec.Green;
-
-  img1.Bitmap:=TBitMap.Create(Trunc(img1.Width),Trunc(img1.Height));
+  LBM:=TBitMap.Create(Trunc(img1.Width),Trunc(img1.Height));
+  img1.Bitmap:=LBM;
   LArea.Curves.Add(Lcv);
   LArea.SetCanvas(img1.Bitmap.Canvas);
   ///
-  LArea.SetAreaParam(RectF(0,0,500,200),img1.Bitmap.BoundsF);
+  LArea.SetAreaParams(RectF(0,0,500,200),img1.Bitmap.BoundsF);
+  LArea.SetAxisDividerValues(0,8);
 //  LCv.ScalePoints(LCv.GetAreaRect,LArea.GetActiveArea);
 //  LCv.ScalePoints(RectF(0,0,500,200),LArea.GetActiveArea);
 
@@ -75,14 +83,55 @@ begin
    LCv.TitleHorzAlign:=TTextAlign.Center;
 
    LArea.RedrawAll;
-   LArea.ApplyAutoMargins;
-   LArea.SetAreaParam(RectF(0,0,500,200),img1.Bitmap.BoundsF);
+   LArea.ApplyAutoMargins(25,4);
+   LArea.ResetAreaParams;
+   LArea.SetAxisTextLabels('Привет, %','Среднеквадратическое отклонение от значения, ККал.');
    LArea.RedrawAll;
    ///
   finally
     img1.Bitmap.Canvas.EndScene;
   end;
+ btn1.Tag:=1;
+end;
 
+procedure TForm1.FormDestroy(Sender: TObject);
+begin
+ if Assigned(LBM) then
+    LBM.Free;
+  if Assigned(LArea) then
+     LArea.Free;
+end;
+
+procedure TForm1.FormResize(Sender: TObject);
+begin
+ if btn1.Tag=1 then
+  begin
+   tmr1.Enabled:=false;
+   tmr1.Enabled:=true;
+  end;
+end;
+
+procedure TForm1.tmr1Timer(Sender: TObject);
+begin
+  lbl1.Text:=IntToStr(Random(10000))+' FFFFFFFF';
+ tmr1.Enabled:=false;
+{ if Assigned(LBM)=false then exit;
+ LBM.SetSize(Trunc(img1.Width),Trunc(img1.Height));
+ img1.Bitmap:=LBM;
+ LArea.SetCanvas(img1.Bitmap.Canvas);
+ img1.Bitmap.Canvas.BeginScene;
+ try
+  LArea.ResetCanvasArea(img1.Bitmap.BoundsF);
+  LArea.RedrawAll;
+  LArea.ResetAutoMargins;
+  LArea.ResetAreaParams;
+  LArea.RedrawAll;
+ finally
+   img1.Bitmap.Canvas.EndScene;
+ end;
+ }
+  LArea.PaintToBitmap(LBM,RectF(0,0,img1.Width,img1.Height),false);
+  img1.Bitmap:=LBM;
 end;
 
 end.
