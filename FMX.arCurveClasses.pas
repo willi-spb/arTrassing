@@ -9,6 +9,10 @@ type
 
  TmarkType=(mpNone,mpCircle,mpUpTriangle,mpTriangle,mpRect,mpRhomb,mpCross,mpDiagCross,mpArrow,mpCustom);
  TTitleType=(ttNone,ttXValue,ttYValue,ttXYvalue,ttTitle,ttDesc,ttCustom);
+ /// <summary>
+ ///    drawing type of curve class
+ /// </summary>
+ TcvDrawType=(cdtPolyline,cdtColumns);
 
  TcvPoint=Class(TObject)
    private
@@ -37,6 +41,7 @@ TOnPointDrawTitleEvent=procedure(aSndr:TObject; aCv:TCanvas; const acvPt:TcvPoin
 
 TarCurve=Class(TObject)
   private
+   FDrawType:TcvDrawType;
    FMarkType:TmarkType;
    FMarkSize:single;
    FmarkVisibled,FmarkFilled:boolean;
@@ -46,22 +51,28 @@ TarCurve=Class(TObject)
    FTitleVertAlign:TTextAlign;
    FNum:integer;
    FBrush,FMarkBrush:TStrokeBrush;
-   FMarkFill:TBrush;
+   FFill,FMarkFill:TBrush;
    FTitleFont:TFont;
    FTitleColor:TAlphaColor;
-   FOpacity:single;
+   FOpacity,FFillOpacity:single;
    FScalePt:TPointF;
    FActiveArea:TRectF;
+   FColumnWidth:single;
    FOnPointDrawMarkEvent:TOnPointDrawMarkEvent;
    FOnPointDrawTitleEvent:TOnPointDrawTitleEvent;
    FEnabled:boolean;
    ///
   protected
-   CvRef:TCanvas;
+    CvRef:TCanvas;
   public
     Points:TObjectList<TcvPoint>;
     constructor Create(aNum:integer; aColor:TAlphaColor; aThickness:single=1;
                        aDash:TStrokeDash=TStrokeDash.Solid; aMarkType:TmarkType=TmarkType.mpNone; aMarkSize:single=4);
+    /// <summary>
+    ///    setColumnsType Parametere (if aColWidth>aDeltaXX then width:=Xi+1 - Xi)
+    ///   (if aColWidth<0 then width:=Xi+1 - Xi - aColWidth)
+    /// </summary>
+    procedure SetColumnsType(aColWidth:single; aFillColor:TAlphaColor; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
     destructor Destroy; override;
    ///
     procedure DrawPtMark(aIndex:integer);
@@ -71,17 +82,18 @@ TarCurve=Class(TObject)
     procedure MarkedEvery(aDivModule:integer);
     procedure MarkedSeveral(const APtNums:array of integer);
     procedure DrawPtMarks;
-    procedure DrawPointLines;
+    procedure DrawPointLines; virtual;
     procedure DrawTitles;
-   ///
+    ///
     function GetAreaRect:TrectF;
-   ///
+    ///
     /// <summary>
     ///    Recalc Canvas Poinnts Data From Regions
     /// </summary>
     procedure ScalePoints(aDataArea,aAreaCvRect:TRectF);
     procedure HideMarksAndTitles(aOnlyTitlesFlag:boolean=false);
-   ///
+  ///
+  property DrawType:TcvDrawType read FDrawType;
   property MarkFill:TBrush read FMarkFill;
   property MarkFont:TFont read FTitleFont;
   property TitleColor:TAlphaColor read FTitleColor write FTitleColor;
@@ -320,6 +332,7 @@ begin
   FEnabled:=true; // !
   FOnPointDrawMarkEvent:=nil;
   FOnPointDrawTitleEvent:=nil;
+  FDrawType:=cdtPolyline;
   FTitleType:=ttNone;
   FTitleFormatString:='%.2f';
   FTitleHorzAlign:=TTextAlign.Center;
@@ -331,9 +344,11 @@ begin
   Points:=TObjectList<TcvPoint>.Create(true);
   FMarkType:=aMarkType;
   FNum:=aNum;
-  FOpacity:=1;
+  FOpacity:=1; FFillOpacity:=1;
   FMarkSize:=Abs(aMarkSize);
   FMarkBrush:=TStrokeBrush.Create(TBrushKind.Solid,aColor);
+  FFill:=TBrush.Create(TBrushKind.None,aColor);
+  FFill.Kind:=TBrushKind.Solid;
   FMarkFill:=TBrush.Create(TBrushKind.None,aColor);
   FMarkFill.Kind:=TBrushKind.Solid;
   FTitleFont:=TFont.Create;
@@ -348,6 +363,7 @@ begin
   Points.Free;
   FBrush.Free;
   FMarkBrush.free;
+  FFill.Free;
   FMarkFill.Free;
   FTitleFont.Free;
   inherited;
@@ -355,32 +371,77 @@ end;
 
 
 procedure TarCurve.DrawPointLines;
-var LPt:TcvPoint;
+var LcvPt:TcvPoint;
     i:integer;
+    L_minX,L_maxX:single;
     L_A:TPolygon;
     LState:TCanvasSaveState;
+    L_Corn:TCorners;
+    L_Rect:TRectF;
 begin
   if Points.Count=0 then exit;
   SetLength(L_A,Points.Count);
   i:=0;
-  for Lpt in Points do
-    begin
-     L_A[i]:=Lpt.Point;
+  for LcvPt in Points do
+   begin
+     L_A[i]:=LcvPt.Point;
      Inc(i);
-    end;
-   ///
-   with CvRef do
-    begin
-     LState:=SaveState;
-     try
-      IntersectClipRect(FActiveArea);
-      Stroke.Assign(FBrush);
-      DrawPolygon(L_A,FOpacity);
-     finally
-      RestoreState(LState);
-     end;
-    end;
-   SetLength(L_A,0);
+   end;
+  ///
+  case FDrawType of
+    cdtPolyline:
+         with CvRef do
+          begin
+           LState:=SaveState;
+           try
+            IntersectClipRect(FActiveArea);
+            Stroke.Assign(FBrush);
+            DrawPolygon(L_A,FOpacity);
+           finally
+            RestoreState(LState);
+           end;
+          end;
+    cdtColumns:
+      begin
+        L_Corn:=[];// [TCorner.TopLeft,TCorner.TopRight, TCorner.BottomLeft, TCorner.BottomRight];
+        with CvRef do
+          begin
+           LState:=SaveState;
+           try
+            IntersectClipRect(FActiveArea);
+            Stroke.Assign(FBrush);
+            for i:=0 to High(L_A) do
+               begin
+                if (i>0) then
+                      L_minX:=L_A[i-1].X+0.5*Abs(L_A[i].X-L_A[i-1].X)
+                else L_minX:=FActiveArea.Left;
+                if (i<High(L_A)) then
+                      L_maxX:=L_A[i+1].X-0.5*Abs(L_A[i+1].X-L_A[i].X)
+                else L_maxX:=FActiveArea.Right;
+                ///
+                if FColumnWidth>0 then
+                 begin
+                   L_Rect:=RectF(L_A[i].X-0.5*FColumnWidth,L_A[i].Y,L_A[i].X+0.5*FColumnWidth,FActiveArea.Bottom);
+                   /// calculate Xi+1 - Xi delta
+                   if L_Rect.Left<L_minX then L_Rect.Left:=L_minX;
+                   if L_Rect.Right>L_maxX then L_Rect.Right:=L_maxX;
+                 end
+                else
+                  begin
+                    L_Rect:=RectF(L_minX+Abs(FColumnWidth),L_A[i].Y,
+                                  L_maxX-Abs(FColumnWidth),FActiveArea.Bottom);
+                  end;
+                 ///
+                 FillRect(L_Rect,0,0,[],FFillOpacity,FFill,TCornerType.InnerLine);
+                 DrawRect(L_Rect,0,0,L_Corn,FOpacity,FBrush,TCornerType.Bevel);
+               end;
+           finally
+            RestoreState(LState);
+           end;
+          end;
+      end;
+  end;
+  SetLength(L_A,0);
 end;
 
 procedure TarCurve.DrawPtMark(aIndex: integer);
@@ -658,6 +719,15 @@ begin
       Lpt.Title:='';
     end;
   FActiveArea:=aAreaCvRect; // !
+end;
+
+procedure TarCurve.SetColumnsType(aColWidth:single; aFillColor:TAlphaColor; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
+begin
+  FDrawType:=cdtColumns;
+  FColumnWidth:=aColWidth;
+  FFill.Kind:=aFillKind;
+  FFill.Color:=aFillColor;
+  FFillOpacity:=aColOpacity;
 end;
 
 { TarAxis }

@@ -54,6 +54,11 @@ begin
   Lcv.MarkFill.Kind:=TBrushKind.Solid;
   Lcv.MarkFilled:=true;
   Lcv.TitleColor:=TAlphaColorRec.Green;
+  ///
+  ///  отрицательная ширина - это значение отступа от соседнего графика в единицах
+  //Lcv.SetColumnsType(-5,TAlphaColorRec.Yellow,0.6);
+    Lcv.SetColumnsType(26,TAlphaColorRec.Yellow,0.6);
+  ///
   LBM:=TBitMap.Create(Trunc(img1.Width),Trunc(img1.Height));
   img1.Bitmap:=LBM;
   LArea.Curves.Add(Lcv);
