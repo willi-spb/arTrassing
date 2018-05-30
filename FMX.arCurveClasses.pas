@@ -62,7 +62,10 @@ TarCurve=Class(TObject)
    FOnPointDrawMarkEvent:TOnPointDrawMarkEvent;
    FOnPointDrawTitleEvent:TOnPointDrawTitleEvent;
    FEnabled:boolean;
-   ///
+   /// <summary>
+   ///    fillBottom - true: DrawPoly with bottom Area
+   /// </summary>
+   FBottomFilled:boolean;
   protected
     CvRef:TCanvas;
   public
@@ -96,6 +99,11 @@ TarCurve=Class(TObject)
     procedure HideMarksAndTitles(aOnlyTitlesFlag:boolean=false);
   ///
   property DrawType:TcvDrawType read FDrawType;
+  /// <summary>
+   ///    if BottomFilled=true: DrawPoly with bottom Area - only Polyline DrawType
+   /// </summary>
+  property BottomFilled:boolean read FBottomFilled write FBottomFilled;
+  property Fill:TBrush read FFill;
   property MarkFill:TBrush read FMarkFill;
   property MarkFont:TFont read FTitleFont;
   property TitleColor:TAlphaColor read FTitleColor write FTitleColor;
@@ -106,9 +114,12 @@ TarCurve=Class(TObject)
   property TitleFormatString:String read FTitleFormatString write FTitleFormatString;
   property TitleHorzAlign:TTextAlign read FTitleHorzAlign write FTitleHorzAlign;
   property TitleVertAlign:TTextAlign read FTitleVertAlign write FTitleVertAlign;
+  property Opacity:single read FOpacity write FOpacity;
+  property FillOpacity:single read FFillOpacity write FFillOpacity;
   property OnPointDrawMarkEvent:TOnPointDrawMarkEvent read FOnPointDrawMarkEvent write FOnPointDrawMarkEvent;
   property OnPointDrawTitleEvent:TOnPointDrawTitleEvent read FOnPointDrawTitleEvent write FOnPointDrawTitleEvent;
   property Enabled:boolean read FEnabled write FEnabled;
+  property Number:integer read FNum write FNum;
 End;
 
 TarAxisLabel=class(TObject)
@@ -241,6 +252,9 @@ TarChartArea=class(TObject)
     /// </summary>
     function DrawCurve(const aCv:TarCurve):boolean;
     function DrawCurves:boolean;
+    function GetIndexFromNumber(aNum:integer):integer;
+    function GetCurveFromNumber(aNum:integer):TarCurve;
+    procedure BringNumToFront(aNum:integer);
     ///
     constructor Create(aFrameColor,aGridColor:TAlphaColor;
                        aGridDash:TStrokeDash=TStrokeDash.Solid; aLabelThickness:single=1);
@@ -335,6 +349,7 @@ begin
   FOnPointDrawMarkEvent:=nil;
   FOnPointDrawTitleEvent:=nil;
   FDrawType:=cdtPolyline;
+  FBottomFilled:=false;
   FTitleType:=ttNone;
   FTitleFormatString:='%.2f';
   FTitleHorzAlign:=TTextAlign.Center;
@@ -384,13 +399,20 @@ var LcvPt:TcvPoint;
     L_Rect:TRectF;
 begin
   if Points.Count=0 then exit;
-  SetLength(L_A,Points.Count);
+  if (FDrawType=cdtPolyline) and (FBottomFilled=true) then
+       SetLength(L_A,Points.Count+2)
+  else SetLength(L_A,Points.Count);
   i:=0;
   for LcvPt in Points do
    begin
      L_A[i]:=LcvPt.Point;
      Inc(i);
    end;
+   if (FBottomFilled=true) and (i>1) and (i+2=Length(L_A)) then
+    begin
+      L_A[i]:=PointF(L_A[i-1].X,FActiveArea.Bottom);
+      L_A[i+1]:=PointF(FActiveArea.Left,FActiveArea.Bottom);
+    end;
   ///
   case FDrawType of
     cdtPolyline:
@@ -400,6 +422,10 @@ begin
            try
             IntersectClipRect(FActiveArea);
             Stroke.Assign(FBrush);
+            CvRef.Fill.Assign(FFill);
+            if FBottomFilled then
+              FillPolygon(L_A,FFillOpacity);
+            ///
             DrawPolygon(L_A,FOpacity);
            finally
             RestoreState(LState);
@@ -978,6 +1004,17 @@ begin
  }
 end;
 
+procedure TarChartArea.BringNumToFront(aNum: integer);
+var L_index:integer;
+begin
+  if Curves.Count<2 then exit;
+  L_index:=GetIndexFromNumber(aNum);
+  if (L_index>=0) then
+   begin
+     Curves.Exchange(L_index,Curves.Count-1);
+   end;
+end;
+
 constructor TarChartArea.Create(aFrameColor,aGridColor:TAlphaColor;
                        aGridDash:TStrokeDash=TStrokeDash.Solid; aLabelThickness:single=1);
 begin
@@ -1092,11 +1129,29 @@ end;
 
 function TarChartArea.DrawCurves: boolean;
 var LCv:TarCurve;
+    i:integer;
 begin
   Result:=false;
-  for Lcv in Curves do
+ { for Lcv in Curves do
       if DrawCurve(Lcv) then
          Result:=true;
+         }
+   i:=0;
+   while i<Curves.Count do
+    begin
+      LCv:=Curves.Items[i];
+      if DrawCurve(Lcv) then
+         Result:=true;
+      Inc(i);
+    end;
+
+{  for I:=Curves.Count-1 downto 0 do
+   begin
+      LCv:=Curves.Items[i];
+      if DrawCurve(Lcv) then
+         Result:=true;
+    end;
+ }
 end;
 
 procedure TarChartArea.DrawFrame;
@@ -1150,6 +1205,32 @@ begin
                       FCanvasArea.Bottom-FMarginRect.Bottom);
 end;
 
+
+function TarChartArea.GetCurveFromNumber(aNum: integer): TarCurve;
+var i:integer;
+begin
+   Result:=nil;
+   i:=GetIndexFromNumber(aNum);
+   if (i>=0) and (i<Curves.Count) then
+      Result:=Curves.Items[i];
+end;
+
+function TarChartArea.GetIndexFromNumber(aNum: integer):integer;
+ var i:integer;
+     Lcv:TarCurve;
+begin
+   Result:=-1;
+   i:=0;
+   while i<Curves.Count do
+    begin
+      if Curves.Items[i].Number=aNum then
+         begin
+           Result:=i;
+           break;
+         end;
+      Inc(i);
+    end;
+end;
 
 procedure TarChartArea.PaintToBitmap(const ABM: TBitmap; aNewBMArea: TRectF;
   AutoMarginEnabled: boolean);

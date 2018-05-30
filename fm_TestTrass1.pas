@@ -53,7 +53,7 @@ begin
   end;
   Lcv.MarkFill.Kind:=TBrushKind.Solid;
   Lcv.MarkFilled:=true;
-  Lcv.TitleColor:=TAlphaColorRec.Green;
+  Lcv.TitleColor:=TAlphaColorRec.Navy;
   ///
   ///  отрицательная ширина - это значение отступа от соседнего графика в единицах
   //Lcv.SetColumnsType(,TAlphaColorRec.Yellow,0.6);
@@ -62,6 +62,9 @@ begin
   LBM:=TBitMap.Create(Trunc(img1.Width),Trunc(img1.Height));
   img1.Bitmap:=LBM;
   LArea.Curves.Add(Lcv);
+  /// hide Lcv Curve
+ //  Lcv.Enabled:=false;
+
   LArea.SetCanvas(img1.Bitmap.Canvas);
   ///
   LArea.SetAreaParams(RectF(0,0,500,200),img1.Bitmap.BoundsF);
@@ -71,6 +74,14 @@ begin
 
   LArea.AddCurve(1,TAlphaColorRec.Darkcyan,1,TStrokeDash.Solid,TmarkType.mpRect,5);
   LArea.Curves.Last.MarkFilled:=true;
+  /// Filled
+  with LArea.Curves.Last do
+    begin
+       Fill.Color:=TAlphaColorRec.Aqua;
+       FillOpacity:=0.8;
+       BottomFilled:=true;
+    end;
+  ///
    Lx:=-20; Ly:=0;
    for I :=0 to 200 do
     begin
@@ -91,6 +102,7 @@ begin
    LArea.ApplyAutoMargins(25,4);
    LArea.ResetAreaParams;
    LArea.SetAxisTextLabels('Привет, %','Среднеквадратическое отклонение от значения, ККал.');
+   LArea.BringNumToFront(0);
    LArea.RedrawAll;
    ///
   finally
