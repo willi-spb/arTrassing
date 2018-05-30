@@ -58,6 +58,7 @@ TarCurve=Class(TObject)
    FScalePt:TPointF;
    FActiveArea:TRectF;
    FColumnWidth:single;
+   FColumnDividerWidth:single;
    FOnPointDrawMarkEvent:TOnPointDrawMarkEvent;
    FOnPointDrawTitleEvent:TOnPointDrawTitleEvent;
    FEnabled:boolean;
@@ -69,10 +70,11 @@ TarCurve=Class(TObject)
     constructor Create(aNum:integer; aColor:TAlphaColor; aThickness:single=1;
                        aDash:TStrokeDash=TStrokeDash.Solid; aMarkType:TmarkType=TmarkType.mpNone; aMarkSize:single=4);
     /// <summary>
-    ///    setColumnsType Parametere (if aColWidth>aDeltaXX then width:=Xi+1 - Xi)
-    ///   (if aColWidth<0 then width:=Xi+1 - Xi - aColWidth)
+    ///    setColumnsType Parameters (if aColWidth>aDeltaXX then column width:=Xi+1 - Xi)
+    ///   (if aDivWidth>0 then column width:=Xi+1 - Xi - aDivWidth)
     /// </summary>
-    procedure SetColumnsType(aColWidth:single; aFillColor:TAlphaColor; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
+    procedure SetColumnsType(aColWidth:single; aFillColor:TAlphaColor;
+                             aDivWidth:single=0; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
     destructor Destroy; override;
    ///
     procedure DrawPtMark(aIndex:integer);
@@ -355,6 +357,8 @@ begin
   FTitleFont.Size:=10;
   FTitleColor:=FMarkBrush.Color;
   FActiveArea:=RectF(0,0,100,100);
+  FColumnDividerWidth:=0;
+  FColumnWidth:=12;
  // FTitleFont.Color:=
 end;
 
@@ -373,7 +377,7 @@ end;
 procedure TarCurve.DrawPointLines;
 var LcvPt:TcvPoint;
     i:integer;
-    L_minX,L_maxX:single;
+    L_minX,L_maxX,L_DivX:single;
     L_A:TPolygon;
     LState:TCanvasSaveState;
     L_Corn:TCorners;
@@ -403,6 +407,7 @@ begin
           end;
     cdtColumns:
       begin
+        L_DivX:=0.5*Abs(FColumnDividerWidth);
         L_Corn:=[];// [TCorner.TopLeft,TCorner.TopRight, TCorner.BottomLeft, TCorner.BottomRight];
         with CvRef do
           begin
@@ -413,11 +418,11 @@ begin
             for i:=0 to High(L_A) do
                begin
                 if (i>0) then
-                      L_minX:=L_A[i-1].X+0.5*Abs(L_A[i].X-L_A[i-1].X)
-                else L_minX:=FActiveArea.Left;
+                      L_minX:=L_A[i-1].X+0.5*Abs(L_A[i].X-L_A[i-1].X)+L_DivX
+                else L_minX:=FActiveArea.Left+L_DivX;
                 if (i<High(L_A)) then
-                      L_maxX:=L_A[i+1].X-0.5*Abs(L_A[i+1].X-L_A[i].X)
-                else L_maxX:=FActiveArea.Right;
+                      L_maxX:=L_A[i+1].X-0.5*Abs(L_A[i+1].X-L_A[i].X)-L_DivX
+                else L_maxX:=FActiveArea.Right-L_DivX;
                 ///
                 if FColumnWidth>0 then
                  begin
@@ -428,8 +433,7 @@ begin
                  end
                 else
                   begin
-                    L_Rect:=RectF(L_minX+Abs(FColumnWidth),L_A[i].Y,
-                                  L_maxX-Abs(FColumnWidth),FActiveArea.Bottom);
+                    L_Rect:=RectF(L_minX,L_A[i].Y,L_maxX,FActiveArea.Bottom);
                   end;
                  ///
                  FillRect(L_Rect,0,0,[],FFillOpacity,FFill,TCornerType.InnerLine);
@@ -721,13 +725,15 @@ begin
   FActiveArea:=aAreaCvRect; // !
 end;
 
-procedure TarCurve.SetColumnsType(aColWidth:single; aFillColor:TAlphaColor; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
+procedure TarCurve.SetColumnsType(aColWidth:single; aFillColor:TAlphaColor; aDivWidth:single=0;
+                 aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
 begin
   FDrawType:=cdtColumns;
   FColumnWidth:=aColWidth;
   FFill.Kind:=aFillKind;
   FFill.Color:=aFillColor;
   FFillOpacity:=aColOpacity;
+  FColumnDividerWidth:=aDivWidth;
 end;
 
 { TarAxis }
