@@ -12,7 +12,7 @@ type
  /// <summary>
  ///    drawing type of curve class
  /// </summary>
- TcvDrawType=(cdtPolyline,cdtColumns);
+ TcvDrawType=(cdtPolyline,cdtLevels,cdtColumns);
 
  TcvPoint=Class(TObject)
    private
@@ -116,6 +116,8 @@ TarCurve=Class(TObject)
   property TitleVertAlign:TTextAlign read FTitleVertAlign write FTitleVertAlign;
   property Opacity:single read FOpacity write FOpacity;
   property FillOpacity:single read FFillOpacity write FFillOpacity;
+  property MarkType:TmarkType read FMarkType write FMarkType;
+  property MarkSize:single read FMarkSize write FMarkSize;
   property OnPointDrawMarkEvent:TOnPointDrawMarkEvent read FOnPointDrawMarkEvent write FOnPointDrawMarkEvent;
   property OnPointDrawTitleEvent:TOnPointDrawTitleEvent read FOnPointDrawTitleEvent write FOnPointDrawTitleEvent;
   property Enabled:boolean read FEnabled write FEnabled;
@@ -254,6 +256,9 @@ TarChartArea=class(TObject)
     function DrawCurves:boolean;
     function GetIndexFromNumber(aNum:integer):integer;
     function GetCurveFromNumber(aNum:integer):TarCurve;
+    /// <summary>
+    ///    change Curve to Forward (Front)
+    /// </summary>
     procedure BringNumToFront(aNum:integer);
     ///
     constructor Create(aFrameColor,aGridColor:TAlphaColor;
@@ -391,7 +396,7 @@ end;
 
 procedure TarCurve.DrawPointLines;
 var LcvPt:TcvPoint;
-    i:integer;
+    i,j:integer;
     L_minX,L_maxX,L_DivX:single;
     L_A:TPolygon;
     LState:TCanvasSaveState;
@@ -399,23 +404,54 @@ var LcvPt:TcvPoint;
     L_Rect:TRectF;
 begin
   if Points.Count=0 then exit;
-  if (FDrawType=cdtPolyline) and (FBottomFilled=true) then
-       SetLength(L_A,Points.Count+2)
-  else SetLength(L_A,Points.Count);
-  i:=0;
-  for LcvPt in Points do
-   begin
-     L_A[i]:=LcvPt.Point;
-     Inc(i);
-   end;
-   if (FBottomFilled=true) and (i>1) and (i+2=Length(L_A)) then
+  i:=0; j:=0;
+  case FDrawType of
+   cdtPolyline:
+       begin
+         if (FBottomFilled=true) then
+             SetLength(L_A,Points.Count+2)
+         else
+             SetLength(L_A,Points.Count);
+         for LcvPt in Points do
+            begin
+              L_A[i]:=LcvPt.Point;
+              Inc(i);
+            end;
+       end;
+   cdtLevels:
+       begin
+         if (FBottomFilled=true) then
+             SetLength(L_A,2*Points.Count+2)
+         else SetLength(L_A,2*Points.Count);
+         while j<Points.Count do
+            begin
+              LcvPt:=Points.Items[j];
+              if (j<Points.Count-2) then
+               begin
+                L_A[i]:=LcvPt.Point;
+                L_A[i+1]:=PointF(Points.Items[i+1].ptX,L_A[j].Y);
+                Inc(i,2);
+               end
+              else
+               begin
+                L_A[i]:=LcvPt.Point;
+                if L_A[i].X<FActiveArea.Right then
+                   L_A[i+1]:=PointF(FActiveArea.Right,LcvPt.ptY)
+                else L_A[i+1]:=L_A[i];
+                Inc(i,2);
+               end;
+             Inc(j);
+            end;
+       end;
+  end;
+  if (FBottomFilled=true) and (i>1) and (i<High(L_A)) and (FDrawType<>cdtColumns) then
     begin
       L_A[i]:=PointF(L_A[i-1].X,FActiveArea.Bottom);
       L_A[i+1]:=PointF(FActiveArea.Left,FActiveArea.Bottom);
     end;
   ///
   case FDrawType of
-    cdtPolyline:
+    cdtPolyline,cdtLevels:
          with CvRef do
           begin
            LState:=SaveState;
