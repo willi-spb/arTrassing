@@ -55,9 +55,14 @@ begin
   Lcv.MarkFilled:=true;
   Lcv.TitleColor:=TAlphaColorRec.Navy;
   ///
+  ///  выставить столбцы
   ///  отрицательная ширина - это значение отступа от соседнего графика в единицах
   //Lcv.SetColumnsType(,TAlphaColorRec.Yellow,0.6);
     Lcv.SetColumnsType(26,TAlphaColorRec.Yellow,4,0.6);
+  ///
+  ///  выставить  в виде уровней
+    LCv.SetLevelsType(TAlphaColorRec.Yellow,0.5);
+    LCv.BottomFilled:=true;
   ///
   LBM:=TBitMap.Create(Trunc(img1.Width),Trunc(img1.Height));
   img1.Bitmap:=LBM;

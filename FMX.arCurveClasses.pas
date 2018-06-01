@@ -78,6 +78,7 @@ TarCurve=Class(TObject)
     /// </summary>
     procedure SetColumnsType(aColWidth:single; aFillColor:TAlphaColor;
                              aDivWidth:single=0; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
+    procedure SetLevelsType(aFillColor:TAlphaColor; aFillOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
     destructor Destroy; override;
    ///
     procedure DrawPtMark(aIndex:integer);
@@ -423,13 +424,15 @@ begin
          if (FBottomFilled=true) then
              SetLength(L_A,2*Points.Count+2)
          else SetLength(L_A,2*Points.Count);
+         j:=Length(L_A);
+         j:=0;
          while j<Points.Count do
             begin
               LcvPt:=Points.Items[j];
-              if (j<Points.Count-2) then
+              if (j<Points.Count-1) then
                begin
                 L_A[i]:=LcvPt.Point;
-                L_A[i+1]:=PointF(Points.Items[i+1].ptX,L_A[j].Y);
+                L_A[i+1]:=PointF(Points.Items[j+1].ptX,L_A[i].Y);
                 Inc(i,2);
                end
               else
@@ -449,6 +452,7 @@ begin
       L_A[i]:=PointF(L_A[i-1].X,FActiveArea.Bottom);
       L_A[i+1]:=PointF(FActiveArea.Left,FActiveArea.Bottom);
     end;
+  if Length(L_A)=0 then exit;
   ///
   case FDrawType of
     cdtPolyline,cdtLevels:
@@ -460,9 +464,13 @@ begin
             Stroke.Assign(FBrush);
             CvRef.Fill.Assign(FFill);
             if FBottomFilled then
+             begin
               FillPolygon(L_A,FFillOpacity);
-            ///
-            DrawPolygon(L_A,FOpacity);
+              DrawPolygon(L_A,FOpacity);
+             end
+            else
+              for i:=Low(L_A) to High(L_A)-1 do
+                  DrawLine(L_A[i],L_A[i+1],FOpacity);
            finally
             RestoreState(LState);
            end;
@@ -796,6 +804,15 @@ begin
   FFill.Color:=aFillColor;
   FFillOpacity:=aColOpacity;
   FColumnDividerWidth:=aDivWidth;
+end;
+
+procedure TarCurve.SetLevelsType(aFillColor: TAlphaColor; aFillOpacity: single;
+  aFillKind: TBrushKind);
+begin
+  FDrawType:=cdtLevels;
+  FFill.Kind:=aFillKind;
+  FFill.Color:=aFillColor;
+  FFillOpacity:=aFillOpacity;
 end;
 
 { TarAxis }
