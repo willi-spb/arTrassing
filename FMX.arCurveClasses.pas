@@ -13,7 +13,9 @@ type
  ///    drawing type of curve class
  /// </summary>
  TcvDrawType=(cdtPolyline,cdtLevels,cdtColumns);
-
+ /// <summary>
+ ///        point for Curve with real X,Y coordinates
+ /// </summary>
  TcvPoint=Class(TObject)
    private
     function GetPt(Index:integer):single;
@@ -32,7 +34,13 @@ type
     ///
     property X:single  index 1 read GetPt write SetPt;
     property Y:single  index 2 read GetPt write SetPt;
+    /// <summary>
+    ///       X-ccordinate from Canvas
+    /// </summary>
     property ptX:single  index 3 read GetPt write SetPt;
+     /// <summary>
+    ///       Y-ccordinate from Canvas
+    /// </summary>
     property ptY:single  index 4 read GetPt write SetPt;
  End;
 
@@ -80,17 +88,30 @@ TarCurve=Class(TObject)
                              aDivWidth:single=0; aColOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
     procedure SetLevelsType(aFillColor:TAlphaColor; aFillOpacity:single=1; aFillKind:TBrushKind=TBrushKind.Solid);
     destructor Destroy; override;
-   ///
+    /// <summary>
+    ///     draw Mark for point
+    /// </summary>
     procedure DrawPtMark(aIndex:integer);
     /// <summary>
     ///    hide all marks in points except every aDiv
     /// </summary>
     procedure MarkedEvery(aDivModule:integer);
+    /// <summary>
+    ///     show (Marks) only Several point from numbers array
+    /// </summary>
     procedure MarkedSeveral(const APtNums:array of integer);
     procedure DrawPtMarks;
+    /// <summary>
+    ///       direct draw curve with current DrawType
+    /// </summary>
     procedure DrawPointLines; virtual;
+    /// <summary>
+    ///   draw Titles for Points with current TitleType
+    /// </summary>
     procedure DrawTitles;
-    ///
+    /// <summary>
+    ///   calculate curve canvas (pt) Area (min Max X,Y)
+    /// </summary>
     function GetAreaRect:TrectF;
     ///
     /// <summary>
@@ -125,6 +146,9 @@ TarCurve=Class(TObject)
   property Number:integer read FNum write FNum;
 End;
 
+/// <summary>
+///   draw Axis Titles - taking into account the space for the axes and rotate Axis
+/// </summary>
 TarAxisLabel=class(TObject)
   private
    FVerticalFlag:boolean;
@@ -152,6 +176,9 @@ TarAxisLabel=class(TObject)
     property Visible:boolean read FVisible write FVisible;
 end;
 
+/// <summary>
+///     Axis class - fro draw Axis (X,Y)
+/// </summary>
 TarAxis=class(TObject)
   private
    FVerticalFlag:boolean;
