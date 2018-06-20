@@ -1,4 +1,4 @@
-unit FMX.arCurveClasses;
+п»їunit FMX.arCurveClasses;
 
 interface
 
@@ -249,15 +249,15 @@ TarChartArea=class(TObject)
     function GetActiveArea:TRectF;
     procedure SetAreaParams(const aDataArea,aAreaCvRect:TRectF);
     /// <summary>
-    ///    с установленными ранее в SetAreaParams значениями перевычислить с новыми границами margins
+    ///    СЃ СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹РјРё СЂР°РЅРµРµ РІ SetAreaParams Р·РЅР°С‡РµРЅРёСЏРјРё РїРµСЂРµРІС‹С‡РёСЃР»РёС‚СЊ СЃ РЅРѕРІС‹РјРё РіСЂР°РЅРёС†Р°РјРё margins
     /// </summary>
     procedure ResetAreaParams;
     /// <summary>
-    ///    изменяется только область canvas - у нее новый размер
+    ///    РёР·РјРµРЅСЏРµС‚СЃСЏ С‚РѕР»СЊРєРѕ РѕР±Р»Р°СЃС‚СЊ canvas - Сѓ РЅРµРµ РЅРѕРІС‹Р№ СЂР°Р·РјРµСЂ
     /// </summary>
     procedure ResetCanvasArea(const aAreaCvRect:TRectF);
     /// <summary>
-    ///    задать кол-во разбиений по осям XY - перед этим следует задать DataArea
+    ///    Р·Р°РґР°С‚СЊ РєРѕР»-РІРѕ СЂР°Р·Р±РёРµРЅРёР№ РїРѕ РѕСЃСЏРј XY - РїРµСЂРµРґ СЌС‚РёРј СЃР»РµРґСѓРµС‚ Р·Р°РґР°С‚СЊ DataArea
     /// </summary>
     procedure SetAxisDividerValues(adivX,adivY:single);
     procedure SetCanvas(const ACv:Tcanvas);
@@ -296,17 +296,17 @@ TarChartArea=class(TObject)
     procedure RedrawAll;
     ///
     /// <summary>
-    ///    после RedrawAll изменяет отступы с учетом длинны надписей текста осей и + addAxismargin как доп. отступ
-    ///    от осей с цифрами и addFrameMargin - от верх и право (где осей нет)
+    ///    РїРѕСЃР»Рµ RedrawAll РёР·РјРµРЅСЏРµС‚ РѕС‚СЃС‚СѓРїС‹ СЃ СѓС‡РµС‚РѕРј РґР»РёРЅРЅС‹ РЅР°РґРїРёСЃРµР№ С‚РµРєСЃС‚Р° РѕСЃРµР№ Рё + addAxismargin РєР°Рє РґРѕРї. РѕС‚СЃС‚СѓРї
+    ///    РѕС‚ РѕСЃРµР№ СЃ С†РёС„СЂР°РјРё Рё addFrameMargin - РѕС‚ РІРµСЂС… Рё РїСЂР°РІРѕ (РіРґРµ РѕСЃРµР№ РЅРµС‚)
     /// </summary>
     procedure ApplyAutoMargins(addAxisMargin,addFrameMargin:integer);
     /// <summary>
-    ///    пересчет автоотступов при изменении размера картинки (не меняется значение отступов - берется предыдущее)
+    ///    РїРµСЂРµСЃС‡РµС‚ Р°РІС‚РѕРѕС‚СЃС‚СѓРїРѕРІ РїСЂРё РёР·РјРµРЅРµРЅРёРё СЂР°Р·РјРµСЂР° РєР°СЂС‚РёРЅРєРё (РЅРµ РјРµРЅСЏРµС‚СЃСЏ Р·РЅР°С‡РµРЅРёРµ РѕС‚СЃС‚СѓРїРѕРІ - Р±РµСЂРµС‚СЃСЏ РїСЂРµРґС‹РґСѓС‰РµРµ)
     /// </summary>
     procedure ResetAutoMargins;
     ///
     /// <summary>
-    ///    использовать переустановку размеров Bitmap и далее полный цикл вывода
+    ///    РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РїРµСЂРµСѓСЃС‚Р°РЅРѕРІРєСѓ СЂР°Р·РјРµСЂРѕРІ Bitmap Рё РґР°Р»РµРµ РїРѕР»РЅС‹Р№ С†РёРєР» РІС‹РІРѕРґР°
     /// </summary>
     procedure PaintToBitmap(const ABM:TBitmap; aNewBMArea:TRectF; AutoMarginEnabled:boolean=false);
     ///
@@ -1053,7 +1053,7 @@ begin
   if ANum=0 then
      i:=Curves.Count
   else i:=aNum;
-  ///  проверить на наличие номера в списке
+  ///  РїСЂРѕРІРµСЂРёС‚СЊ РЅР° РЅР°Р»РёС‡РёРµ РЅРѕРјРµСЂР° РІ СЃРїРёСЃРєРµ
   ///
   Lcv:=TarCurve.Create(i,aColor,aThickness,aDash,aMarkType,aMarkSize);
   Lcv.CvRef:=Self.CvRef;
@@ -1476,7 +1476,7 @@ begin
      FCenter:=PointF(aCvRect.left+0.5*(aCnx-aCvRect.left),aCnY)
   else
      FCenter:=PointF(aCnx,aCvRect.Bottom-0.5*(aCvRect.Bottom-aCnY));
-  /// проверка на выход за пределы
+  /// РїСЂРѕРІРµСЂРєР° РЅР° РІС‹С…РѕРґ Р·Р° РїСЂРµРґРµР»С‹
   ///  ...
   ///
   if LRotate<>0 then
