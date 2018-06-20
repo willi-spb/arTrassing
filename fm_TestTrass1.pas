@@ -101,13 +101,22 @@ begin
        BottomFilled:=true;
     end;
   ///
-  ///  заполнить новую кривую графика точками по линейной зависисмости, задать параметры
+{ ///  заполнить новую кривую графика точками по линейной зависисмости, задать параметры
    Lx:=-20; Ly:=0;
    for I :=0 to 200 do
     begin
      Larea.Curves.Last.Points.Add(TcvPoint.Create(i,Lx,Ly));
      Lx:=Lx+2; Ly:=Ly+0.6;
     end;
+  }
+  /// синусоида - для теста
+   Lx:=-20; Ly:=0;
+   for I :=0 to 300 do
+    begin
+     Larea.Curves.Last.Points.Add(TcvPoint.Create(i,Lx,Ly));
+     Lx:=Lx+2; Ly:=120+50*Sin(Lx*0.04);
+    end;
+
    Larea.Curves.Last.TitleType:=ttYValue;
    Larea.Curves.Last.MarkedEvery(20);
 /// выводить только указанные по номерам надписи точек кривой
